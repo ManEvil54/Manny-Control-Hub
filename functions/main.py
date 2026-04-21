@@ -1,6 +1,8 @@
-from firebase_functions import https_fn
+from firebase_functions import https_fn, scheduler_fn
 from firebase_admin import initialize_app, firestore
 import os
+import requests
+from datetime import datetime
 from trader_bridge import place_sniper_order, load_config
 
 initialize_app()
@@ -116,3 +118,16 @@ def tradovate_webhook(req: https_fn.Request) -> https_fn.Response:
     agent_ref.set(update_data, merge=True)
 
     return https_fn.Response(f"Order Sent: {tier['label']} {action} {tier['qty']} {symbol}. MCH Updated.")
+
+@scheduler_fn.on_schedule(schedule="every 5 minutes")
+def market_heartbeat(event: scheduler_fn.ScheduledEvent) -> None:
+    """Updates the Market agent last_seen to show it's online in MCH."""
+    try:
+        agent_ref = db.collection("agents").document("market_command")
+        agent_ref.set({
+            "last_seen": firestore.SERVER_TIMESTAMP,
+            "status": "IDLE" # Default status when not in a trade
+        }, merge=True)
+        print("Market Heartbeat Sent.")
+    except Exception as e:
+        print(f"Heartbeat Error: {str(e)}")
