@@ -1,4 +1,6 @@
 import time
+import os
+from datetime import datetime
 from fvg_hammer import check_hammer_conditions
 from trader_bridge import place_sniper_order, load_config
 from fee_calculator import calculate_net_profit
@@ -10,55 +12,76 @@ def master_orchestrator():
     """
     config = load_config()
     active_env = config["active_env"]
-    print(f"INITIALIZING MASTER ORCHESTRATOR in {active_env.upper()} mode...")
+    symbol = "/MNQ" # Standard symbol for this strategy
     
-    # Phase 1: The Scout Entry
-    # logic for 9:35 AM ORB + Wick Defense would go here
-    print("[PHASE 1] Scanning for Scout Entry (9:35 AM ORB)...")
-    scout_id = None
+    print(f">>> [MCH HUB] INITIALIZING MASTER ORCHESTRATOR in {active_env.upper()} mode...")
     
-    # Simulated Trigger for Scout
-    scout_triggered = True # Placeholder for actual logic
-    if scout_triggered:
-        print("[MASI] VWAP Sync confirmed. Firing Scout Order...")
-        scout_id = place_sniper_order("/MNQ", 1)
-        print(f"[SCOUT] Position opened. ID: {scout_id}")
+    # --- PHASE 1: THE SCOUT ENTRY (9:35 AM) ---
+    print(f"[PHASE 1] [MASI] Scanning for Scout Entry (9:35 AM ORB) on {symbol}...")
+    
+    # In production, this would wait for the specific time trigger
+    # For now, we simulate the Scout Trigger
+    scout_id = place_sniper_order(symbol, 1)
+    if not scout_id:
+        print("[ERROR] Scout order failed. Aborting sequence.")
+        return
 
-    # Phase 2 & 3: Footprint Detection & Hammer Scale-In
-    if scout_id:
-        print("[PHASE 2] Scanning for 1m FVG Footprint...")
-        hammer_fired = False
+    print(f"[SCOUT] {symbol} Position opened. ID: {scout_id}")
+    entry_price = 18000 # Placeholder for actual fill price
+
+    # --- PHASE 2 & 3: FOOTPRINT DETECTION & HAMMER SCALE-IN ---
+    print("[PHASE 2] [CRAIG] Scanning for 1m FVG Footprint...")
+    hammer_fired = False
+    
+    # Simulated ticker data for the loop
+    # In reality, this would be updated from a WebSocket or REST polling
+    ticker_history = [
+        {'close': 18050, 'high': 18060, 'low': 18040, 'volume': 100},
+        {'close': 18055, 'high': 18065, 'low': 18045, 'volume': 110},
+        {'close': 18040, 'high': 18050, 'low': 18030, 'volume': 150}, # FVG starts here
+    ]
+
+    while not hammer_fired:
+        # 1. Update ticker data (Simulated)
+        new_data = {'close': 18035, 'high': 18040, 'low': 18030, 'volume': 200, 'es_vwap_dist': 1, 'nq_vwap_dist': 1}
+        ticker_history.append(new_data)
+        if len(ticker_history) > 20: ticker_history.pop(0)
+
+        # 2. Check conditions via Oracle Agents (MASI, CRAIG, MARCI, LANCE)
+        status = check_hammer_conditions(ticker_history)
         
-        while not hammer_fired:
-            # check_hammer_conditions handles logic for:
-            # 1. MASI (Sync)
-            # 2. CRAIG (FVG Midpoint)
-            # 3. MARCI (Little RZY Trendline)
-            # 4. LANCE (Volume Urgency)
-            
-            ticker_data = {} # Placeholder for real-time data
-            status = check_hammer_conditions(ticker_data)
-            
-            if status == "FIRE_THE_HAMMER":
-                print("[LANCE] Volume spike detected. Firing Hammer (2 Micros)...")
-                hammer_id = place_sniper_order("/MNQ", 2)
-                hammer_fired = True
-                print(f"[HAMMER] Scale-in complete. ID: {hammer_id}")
-            elif status == "VETO: LOW_URGENCY":
-                print("[LANCE] VETO: Volume stall. Aborting scale-in.")
-                break
-            else:
-                # Waiting for Golden Zone retrace
-                time.sleep(1)
+        if status == "FIRE_THE_HAMMER":
+            print(f"[PHASE 3] [LANCE] Volume spike detected ({new_data['volume']}). Firing Hammer (2 Micros)...")
+            hammer_id = place_sniper_order(symbol, 2)
+            hammer_fired = True
+            print(f"[HAMMER] Scale-in complete for {symbol}. ID: {hammer_id}")
+        elif "VETO" in status:
+            print(f"[VETO] {status}. Aborting scale-in sequence.")
+            break
+        else:
+            print(f"[WAIT] {status}. Monitoring market structure...")
+            time.sleep(1) # Frequency of the main loop
 
-    # Phase 4: Automated Exit & Profit Tracking
-    print("[PHASE 4] Monitoring for Measured Move Target (MARCI)...")
-    # Simulation of exit
-    gross_profit = 100.0 # Placeholder
-    contract_count = 3 # 1 Scout + 2 Hammer
-    
-    net_profit = calculate_net_profit(gross_profit, contract_count, "micro")
-    print(f"[EXIT] Target reached. Net P&L: ${net_profit:.2f} (After $0.70/contract fees)")
+    # --- PHASE 4: AUTOMATED EXIT & PROFIT TRACKING ---
+    if hammer_fired:
+        print("[PHASE 4] [MARCI] Monitoring for Measured Move Target...")
+        # A-B-C-D Math (Placeholder Values)
+        impulse_low = 18000
+        impulse_high = 18065
+        pullback_low = 18030
+        
+        # Target = (High - Low) + PullbackLow
+        target_price = (impulse_high - impulse_low) + pullback_low
+        print(f"[MARCI] Little RZY Target Projected: {target_price}")
+        
+        # Simulated Exit
+        time.sleep(2)
+        exit_price = target_price
+        gross_profit = (exit_price - entry_price) * 2 # 2 points per micro tick approx
+        
+        net_profit = calculate_net_profit(gross_profit, 3, "micro")
+        print(f"[EXIT] Target reached at {exit_price}. Position closed.")
+        print(f"[MCH REPORT] Net P&L: ${net_profit:.2f} (After $0.70 round-trip fees per contract)")
 
 if __name__ == "__main__":
     master_orchestrator()
