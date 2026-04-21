@@ -45,17 +45,17 @@ def tradovate_webhook(req: https_fn.Request) -> https_fn.Response:
     wick_percentage = data.get("wick_pct", 0) # Provided by TradingView alert
 
     # 3. Get Current Bot State from Firestore
-    bot_ref = db.collection("bot_status").document("futures_sniper")
-    bot_doc = bot_ref.get()
-    bot_data = bot_doc.to_dict() if bot_doc.exists else {"daily_trades": 0}
-    daily_count = bot_data.get("daily_trades", 0)
+    # Canonical Registry Alignment: 'agents/market_command'
+    agent_ref = db.collection("agents").document("market_command")
+    agent_doc = agent_ref.get()
+    agent_data = agent_doc.to_dict() if agent_doc.exists else {"daily_trades": 0}
+    daily_count = agent_data.get("daily_trades", 0)
 
     # 4. Apply Tiered Logic
     tier = get_trade_tier(daily_count)
     
     # 5. Hybrid Veto Logic (Technical & Sentiment)
-    # CURRENT VIBE: BULLISH (TSM Margins 66.2% > 65%, Iran Ceasefire Active)
-    research_confirmed = True # Confirmed via Antigravity Research 2026-04-16
+    research_confirmed = True 
     
     if wick_percentage > tier['wick_max']:
         return https_fn.Response(f"Vetoed: Wick too long for {tier['label']} tier ({wick_percentage}%)")
@@ -65,34 +65,35 @@ def tradovate_webhook(req: https_fn.Request) -> https_fn.Response:
 
     # 6. Place Order
     try:
-        # Load Tradier Config
         tradier_cfg = load_config()
-        
-        # Place Order via Tradier Bridge
         order_id = place_sniper_order(symbol, tier['qty'])
         print(f"Tradier Order ID: {order_id}")
     except Exception as e:
-        print(f"Fallback to legacy execution or error: {str(e)}")
-        # Legacy Tradovate code (commented out in original)
-        # token = get_tradovate_token()
-        # order_resp = requests.post(f"{BASE_URL}/order/placeorder", json=order_payload, headers={"Authorization": f"Bearer {token}"})
+        print(f"Execution Error: {str(e)}")
 
     # 7. Sync to MCH Dashboard
     update_data = {
+        "id": "market_command",
+        "name": "Market",
+        "type": "Context Analyst",
         "status": "POSITION_OPEN",
         "active_symbol": symbol,
         "last_action": action,
         "daily_trades": daily_count + 1,
         "conviction_level": tier['conviction'],
         "tier_label": tier['label'],
-        "last_trade_time": firestore.SERVER_TIMESTAMP
+        "last_seen": firestore.SERVER_TIMESTAMP,
+        "conviction_metrics": {
+            "score": 85 if tier['conviction'] == "HIGH" else (65 if tier['conviction'] == "MEDIUM" else 45),
+            "label": tier['conviction']
+        }
     }
 
     # LITTLE RZY LOGIC: Track points and calculate exits
     current_price = data.get("price", 0)
     if tier['label'] == "SCOUT":
-        # Point A is the low, Point B is the breakout high (approximate for now)
-        update_data["point_a"] = data.get("point_a", current_price) # Expected from TV
+        # Point A is the low, Point B is the breakout high
+        update_data["point_a"] = data.get("point_a", current_price) 
         update_data["point_b"] = current_price
     elif tier['label'] == "SCALING":
         # Point C is the pullback low
@@ -111,6 +112,7 @@ def tradovate_webhook(req: https_fn.Request) -> https_fn.Response:
             
             print(f"LITTLE RZY ACTIVE: Target={profit_target}, SL={point_c}")
 
-    bot_ref.update(update_data)
+    # Use set(merge=True) to preserve other metadata like uptime or account history
+    agent_ref.set(update_data, merge=True)
 
     return https_fn.Response(f"Order Sent: {tier['label']} {action} {tier['qty']} {symbol}. MCH Updated.")
