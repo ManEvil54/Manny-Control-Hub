@@ -51,10 +51,26 @@ const Dashboard = () => {
       <SystemStatus activeEnv={config.active_env} modeLabel={currentEnv.mode_label} />
       
       <main className="max-w-6xl mx-auto p-8">
-        <header className="mb-12">
+        <header className="mb-8">
           <h1 className="text-4xl font-black tracking-tight mb-2">MISSION CONTROL HUB</h1>
           <p className="text-gray-500 font-mono text-sm tracking-widest uppercase">Autonomous Futures Trading Logic</p>
         </header>
+
+        {/* Sync-Gap-RZY Status Bar */}
+        <section className="mb-8 bg-black/40 border border-white/5 rounded-xl p-1 flex items-center justify-between font-mono text-[10px] tracking-widest uppercase">
+          <div className="flex-1 flex items-center justify-center border-r border-white/5 py-2">
+            <span className="text-gray-500 mr-2">SYNC:</span>
+            <span className="text-neon-green">ACTIVE (ES/NQ)</span>
+          </div>
+          <div className="flex-1 flex items-center justify-center border-r border-white/5 py-2">
+            <span className="text-gray-500 mr-2">GAP:</span>
+            <span className="text-yellow-400">DETECTED (1M FVG)</span>
+          </div>
+          <div className="flex-1 flex items-center justify-center py-2">
+            <span className="text-gray-500 mr-2">RZY:</span>
+            <span className="text-blue-400">MEASURING MOVE</span>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-1">
@@ -108,6 +124,28 @@ const Dashboard = () => {
                         <span className="text-[10px] text-neon-green font-mono">VETO THRESHOLD: 15%</span>
                     </div>
                 </div>
+              </div>
+            </section>
+
+            {/* 1-Minute Chart FVG Visualization */}
+            <section className="bg-black border border-white/10 rounded-2xl p-6 overflow-hidden relative min-h-[200px]">
+              <h3 className="text-xs font-mono text-gray-500 uppercase mb-6 tracking-widest">1m Footprint Detection</h3>
+              <div className="flex items-end gap-2 h-32 relative px-4">
+                {/* Simulated Candles */}
+                <div className="w-4 h-24 bg-red-500/30 border border-red-500/50 rounded-sm"></div>
+                <div className="w-4 h-32 bg-green-500 border border-green-500/50 rounded-sm"></div>
+                <div className="w-4 h-20 bg-green-500/30 border border-green-500/50 rounded-sm"></div>
+                <div className="w-4 h-28 bg-green-500/30 border border-green-500/50 rounded-sm"></div>
+                
+                {/* FVG Box */}
+                <div className="absolute left-10 bottom-12 w-32 h-16 bg-yellow-400/10 border border-dashed border-yellow-400/40 flex items-center justify-center">
+                  <div className="w-full h-[1px] bg-yellow-400/30 absolute top-1/2"></div>
+                  <span className="text-[8px] text-yellow-400/80 font-mono uppercase bg-black px-1 z-10">50% Golden Zone</span>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-between items-center text-[10px] font-mono text-gray-600">
+                <span>09:35 AM BREAKOUT</span>
+                <span className="text-yellow-400/60">FAIR VALUE GAP ACTIVE</span>
               </div>
             </section>
           </div>

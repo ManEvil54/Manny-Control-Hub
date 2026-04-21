@@ -1,0 +1,16 @@
+# Risk Management Rule
+- **Tiered Position Sizing**: 
+    - **Trade 1 (Scout)**: 1 Micro (/MES or /MNQ).
+    - **Trade 2 (Scaling)**: 2 Micros.
+    - **Trade 3 (Max Conviction)**: 3 Micros.
+- **Dynamic Wick Defense**:
+    - **Scout**: Automatically Veto if upper wick > 25% of the candle.
+    - **Scaling**: Veto if upper wick > 15%.
+    - **Max Conviction**: Veto if upper wick > 10%.
+- **Trade Limit**: Only 1 trade sequence allowed in Power Hour.
+- **Time Veto**: Do not execute any trades between 10:31 AM and 2:59 PM EST.
+- **Sentiment Veto**: If VIX > 25, switch dashboard to 'HIGH RISK' and halt all Scaling trades.
+- **Manny Hub Trade (Little RZY)**:
+    - Follow the **A-B-C-D Geometry** for all scale-in trades.
+    - **Exit Rule**: Profit target set at `BreakoutPrice + (ImpulseHigh - ImpulseLow)`.
+    - **Stop-Loss**: Trailed to the "Rizzy" pullback low (Point C) once the Hammer is live.

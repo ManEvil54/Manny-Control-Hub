@@ -54,6 +54,14 @@ const BotCard = ({ botData }) => {
             </div>
           </div>
           <ConvictionMeter level={conviction_level} />
+          
+          <button className={`w-full py-3 rounded-xl border font-mono text-xs font-bold tracking-widest transition-all duration-300 ${
+            conviction_level === 'HIGH' 
+              ? 'bg-neon-green text-black border-neon-green shadow-glow' 
+              : 'bg-yellow-400 text-black border-yellow-500'
+          }`}>
+            {conviction_level === 'HIGH' ? 'HAMMER: DEPLOYED' : 'HAMMER: WAITING FOR 50%'}
+          </button>
         </div>
       ) : (
         <div className="py-8 text-center">
