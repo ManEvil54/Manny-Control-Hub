@@ -1,0 +1,31 @@
+{
+  "active_env": "sandbox",
+  "environments": {
+    "sandbox": {
+      "base_url": "https://sandbox.tradier.com/v1/",
+      "brokerage_id": "VA59737457",
+      "token": "MABkOCosRjHTOnxmR2gO18teUR2m",
+      "mode_label": "PAPER TRADING",
+      "risk_multiplier": 1.0,
+      "max_contracts": 3,
+      "commission_rate": 0.35,
+      "passthrough_fee": 0.35,
+      "theme_color": "#FFD700"
+    },
+    "production": {
+      "base_url": "https://api.tradier.com/v1/",
+      "brokerage_id": "6YB79222",
+      "token": "Bi0sYuYakvkDnwCjdpeEk5iQlrrP",
+      "mode_label": "LIVE TRADING",
+      "risk_multiplier": 1.0,
+      "max_contracts": 10,
+      "commission_rate": 0.35,
+      "passthrough_fee": 0.35,
+      "theme_color": "#FF4444"
+    }
+  },
+  "instruments": {
+    "mnq": "MNQ",
+    "mes": "MES"
+  }
+}

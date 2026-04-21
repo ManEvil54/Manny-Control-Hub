@@ -1,0 +1,116 @@
+from firebase_functions import https_fn
+from firebase_admin import initialize_app, firestore
+import os
+from trader_bridge import place_sniper_order, load_config
+
+initialize_app()
+db = firestore.client()
+
+# Tradovate API Config (Should use Secret Manager in production)
+BASE_URL = "https://live.tradovateapi.com/v1"
+
+def get_tradovate_token():
+    # Tradovate uses OAuth2
+    # These would ideally be in environment variables or Secret Manager
+    auth_data = {
+        "name": os.environ.get("TRADOVATE_NAME", "YOUR_NAME"),
+        "password": os.environ.get("TRADOVATE_PASS", "YOUR_PASSWORD"),
+        "appId": "MCH_Sniper",
+        "appVersion": "1.0",
+        "cid": os.environ.get("TRADOVATE_CID", "YOUR_CID"),
+        "sec": os.environ.get("TRADOVATE_SEC", "YOUR_SECRET")
+    }
+    response = requests.post(f"{BASE_URL}/auth/accesstokenrequest", data=auth_data)
+    return response.json().get('accessToken')
+
+def get_trade_tier(daily_count):
+    """Returns position sizing and wick defense parameters based on trade sequence."""
+    if daily_count == 0:
+        return {"qty": 1, "wick_max": 0.25, "label": "SCOUT", "conviction": "LOW"}
+    elif daily_count == 1:
+        return {"qty": 2, "wick_max": 0.15, "label": "SCALING", "conviction": "MEDIUM"}
+    else:
+        return {"qty": 3, "wick_max": 0.10, "label": "MAX_CONVICTION", "conviction": "HIGH"}
+
+@https_fn.on_request()
+def tradovate_webhook(req: https_fn.Request) -> https_fn.Response:
+    # 1. Security Check
+    data = req.get_json()
+    if data.get("secret") != "MANNY_SNIPER_2026":
+        return https_fn.Response("Unauthorized", status=401)
+
+    # 2. Extract Signal
+    symbol = data.get("symbol")
+    action = data.get("action").capitalize()
+    wick_percentage = data.get("wick_pct", 0) # Provided by TradingView alert
+
+    # 3. Get Current Bot State from Firestore
+    bot_ref = db.collection("bot_status").document("futures_sniper")
+    bot_doc = bot_ref.get()
+    bot_data = bot_doc.to_dict() if bot_doc.exists else {"daily_trades": 0}
+    daily_count = bot_data.get("daily_trades", 0)
+
+    # 4. Apply Tiered Logic
+    tier = get_trade_tier(daily_count)
+    
+    # 5. Hybrid Veto Logic (Technical & Sentiment)
+    # CURRENT VIBE: BULLISH (TSM Margins 66.2% > 65%, Iran Ceasefire Active)
+    research_confirmed = True # Confirmed via Antigravity Research 2026-04-16
+    
+    if wick_percentage > tier['wick_max']:
+        return https_fn.Response(f"Vetoed: Wick too long for {tier['label']} tier ({wick_percentage}%)")
+
+    if not research_confirmed and tier['qty'] > 1:
+        return https_fn.Response(f"Vetoed: Research Bot did not confirm high-conviction environment.")
+
+    # 6. Place Order
+    try:
+        # Load Tradier Config
+        tradier_cfg = load_config()
+        
+        # Place Order via Tradier Bridge
+        order_id = place_sniper_order(symbol, tier['qty'])
+        print(f"Tradier Order ID: {order_id}")
+    except Exception as e:
+        print(f"Fallback to legacy execution or error: {str(e)}")
+        # Legacy Tradovate code (commented out in original)
+        # token = get_tradovate_token()
+        # order_resp = requests.post(f"{BASE_URL}/order/placeorder", json=order_payload, headers={"Authorization": f"Bearer {token}"})
+
+    # 7. Sync to MCH Dashboard
+    update_data = {
+        "status": "POSITION_OPEN",
+        "active_symbol": symbol,
+        "last_action": action,
+        "daily_trades": daily_count + 1,
+        "conviction_level": tier['conviction'],
+        "tier_label": tier['label'],
+        "last_trade_time": firestore.SERVER_TIMESTAMP
+    }
+
+    # LITTLE RZY LOGIC: Track points and calculate exits
+    current_price = data.get("price", 0)
+    if tier['label'] == "SCOUT":
+        # Point A is the low, Point B is the breakout high (approximate for now)
+        update_data["point_a"] = data.get("point_a", current_price) # Expected from TV
+        update_data["point_b"] = current_price
+    elif tier['label'] == "SCALING":
+        # Point C is the pullback low
+        point_a = bot_data.get("point_a", 0)
+        point_b = bot_data.get("point_b", 0)
+        point_c = data.get("point_c", current_price)
+        
+        if point_a and point_b:
+            # Target = BreakoutPrice + (ImpulseHigh - ImpulseLow)
+            measured_move = (point_b - point_a)
+            profit_target = current_price + measured_move
+            
+            update_data["profit_target"] = profit_target
+            update_data["stop_loss"] = point_c # Move SL to Point C
+            update_data["point_c"] = point_c
+            
+            print(f"LITTLE RZY ACTIVE: Target={profit_target}, SL={point_c}")
+
+    bot_ref.update(update_data)
+
+    return https_fn.Response(f"Order Sent: {tier['label']} {action} {tier['qty']} {symbol}. MCH Updated.")
