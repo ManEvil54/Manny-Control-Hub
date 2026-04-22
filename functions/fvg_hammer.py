@@ -1,8 +1,17 @@
+from advanced_wick_defense import evaluate_rejection_risk, is_near_52wk_high
+
 def check_hammer_conditions(ticker_data):
     """
     Oracle Agent logic to handle the math for the Hammer scale-in.
     Coordinates MASI, CRAIG, MARCI, and LANCE agents.
     """
+    current_candle = ticker_data[-1]
+    
+    # 0. Environment Switch: Rejection Mode Defense (Lance Rule)
+    rejection_status = evaluate_rejection_risk(current_candle)
+    if "HARD_VETO" in rejection_status:
+        return rejection_status
+
     # 1. Check Masi's Sync (VWAP relationship between /ES and /NQ)
     if not masi_sync_is_green(ticker_data):
         return "WAIT: MASI_DIVERGENCE"
@@ -12,13 +21,18 @@ def check_hammer_conditions(ticker_data):
     if not fvg:
         return "WAIT: NO_FVG_FOOTPRINT"
     
-    current_price = ticker_data[-1]['close']
+    current_price = current_candle['close']
     if current_price > fvg['midpoint']:
         return "WAIT: ABOVE_GOLDEN_ZONE"
     
     # 3. Check Marci's Trendline (Little RZY)
-    if not rzy_trendline_broken(ticker_data):
-        return "WAIT: TRENDLINE_INTACT"
+    # ENVIRONMENT SWITCH: At 52-week high, must hold for 3 candles
+    if is_near_52wk_high(current_price):
+        if not rzy_trendline_holds_3_candles(ticker_data):
+            return "WAIT: REJECTION_MODE_3_CANDLE_VALIDATION"
+    else:
+        if not rzy_trendline_broken(ticker_data):
+            return "WAIT: TRENDLINE_INTACT (BREAKOUT_MODE)"
         
     # 4. Check Lance's Volume (Urgency)
     vol_delta = volume_delta(ticker_data)
@@ -32,8 +46,6 @@ def masi_sync_is_green(ticker_data):
     Monitors /ES and /NQ VWAP relationship.
     Indices must both be on the same side of VWAP.
     """
-    # In a real implementation, this would fetch /ES and /NQ data
-    # For now, we assume data is passed in or fetched via bridge
     es_above = ticker_data[-1].get('es_vwap_dist', 0) > 0
     nq_above = ticker_data[-1].get('nq_vwap_dist', 0) > 0
     return es_above == nq_above
@@ -62,11 +74,28 @@ def detect_fvg(ticker_data):
 
 def rzy_trendline_broken(ticker_data):
     """
-    Projects the Little RZY Measured Move and checks for trendline break.
+    Standard Breakout Mode: Check if last candle closed above the previous high.
     """
-    # Simplified logic: If last candle closed above the previous candle's high 
-    # during a pullback, we consider it a 'break' for this prototype.
     return ticker_data[-1]['close'] > ticker_data[-2]['high']
+
+def rzy_trendline_holds_3_candles(ticker_data):
+    """
+    Rejection Mode: Trendline must hold for at least 3 candles above the previous high.
+    """
+    if len(ticker_data) < 4:
+        return False
+    
+    # Check last 3 candles (excluding current if it's not closed, 
+    # but here ticker_data usually contains closed candles in this bot's context)
+    # The rule: 3 candles above the high of the candle BEFORE the breakout attempt.
+    # For this simulation, we'll check if the last 3 closes are above ticker_data[-4]['high']
+    breakout_threshold = ticker_data[-4]['high']
+    
+    for i in range(-1, -4, -1):
+        if ticker_data[i]['close'] <= breakout_threshold:
+            return False
+            
+    return True
 
 def volume_delta(ticker_data):
     """

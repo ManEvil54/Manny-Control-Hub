@@ -13,7 +13,9 @@ const Dashboard = () => {
     conviction_level: 'LOW',
     tier_label: 'SCOUT',
     active_symbol: 'N/A',
-    last_action: 'None'
+    last_action: 'None',
+    env_mode: 'BREAKOUT',
+    is_near_high: false
   });
 
   useEffect(() => {
@@ -35,14 +37,16 @@ const Dashboard = () => {
         conviction_level: 'MEDIUM',
         tier_label: 'SCALING',
         active_symbol: '/MNQ',
-        last_action: 'Buy'
+        last_action: 'Buy',
+        env_mode: 'REJECTION',
+        is_near_high: true
       });
     }, 3000);
 
     return () => clearTimeout(timer);
   }, []);
 
-  if (!config) return <div className="bg-black h-screen flex items-center justify-center font-mono text-neon-green">INITIALIZING MCH...</div>;
+  if (!config) return <div className="bg-black h-screen flex items-center justify-center font-mono text-neon-green text-sm tracking-widest">INITIALIZING MCH ORCHESTRATOR...</div>;
 
   const currentEnv = config.environments[config.active_env];
 
@@ -51,12 +55,20 @@ const Dashboard = () => {
       <SystemStatus activeEnv={config.active_env} modeLabel={currentEnv.mode_label} />
       
       <main className="max-w-6xl mx-auto p-8">
-        <header className="mb-8">
-          <h1 className="text-4xl font-black tracking-tight mb-2">MISSION CONTROL HUB</h1>
-          <p className="text-gray-500 font-mono text-sm tracking-widest uppercase">Autonomous Futures Trading Logic</p>
+        <header className="mb-8 flex justify-between items-end">
+          <div>
+            <h1 className="text-4xl font-black tracking-tight mb-2">MISSION CONTROL HUB</h1>
+            <p className="text-gray-500 font-mono text-[10px] tracking-widest uppercase">Autonomous Futures Trading Logic • v2.4.0</p>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${botData.is_near_high ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-neon-green/10 text-neon-green border-neon-green/30'} uppercase tracking-widest`}>
+              {botData.is_near_high ? 'Near 52W High' : 'Range Bound'}
+            </span>
+            <p className="text-[9px] text-gray-600 font-mono uppercase mt-1">Nasdaq Proximity: 0.42%</p>
+          </div>
         </header>
 
-        {/* Sync-Gap-RZY Status Bar */}
+        {/* Sync-Gap-RZY Status Bar + Environment Switch */}
         <section className="mb-8 bg-black/40 border border-white/5 rounded-xl p-1 flex items-center justify-between font-mono text-[10px] tracking-widest uppercase">
           <div className="flex-1 flex items-center justify-center border-r border-white/5 py-2">
             <span className="text-gray-500 mr-2">SYNC:</span>
@@ -66,9 +78,15 @@ const Dashboard = () => {
             <span className="text-gray-500 mr-2">GAP:</span>
             <span className="text-yellow-400">DETECTED (1M FVG)</span>
           </div>
-          <div className="flex-1 flex items-center justify-center py-2">
+          <div className="flex-1 flex items-center justify-center border-r border-white/5 py-2">
             <span className="text-gray-500 mr-2">RZY:</span>
             <span className="text-blue-400">MEASURING MOVE</span>
+          </div>
+          <div className={`flex-1 flex items-center justify-center py-2 ${botData.env_mode === 'REJECTION' ? 'bg-red-500/20' : 'bg-neon-green/20'} transition-colors duration-1000`}>
+            <span className="text-gray-300 mr-2">MODE:</span>
+            <span className={botData.env_mode === 'REJECTION' ? 'text-red-400 font-bold' : 'text-neon-green font-bold'}>
+              {botData.env_mode} MODE
+            </span>
           </div>
         </section>
 

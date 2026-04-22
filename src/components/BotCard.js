@@ -6,10 +6,11 @@ import ConvictionMeter from './ConvictionMeter';
  * Displays the status and conviction level of the Futures Sniper.
  */
 const BotCard = ({ botData }) => {
-  const { status, conviction_level, tier_label, active_symbol, last_action } = botData;
+  const { status, conviction_level, tier_label, active_symbol, last_action, env_mode, is_near_high } = botData;
 
   const getCardStyle = () => {
     if (status === 'POSITION_OPEN') {
+      if (env_mode === 'REJECTION') return 'border-red-500 shadow-red-glow bg-black/80';
       return conviction_level === 'HIGH' 
         ? 'border-neon-green shadow-glow-strong animate-pulse bg-black/80' 
         : 'border-neon-green shadow-glow bg-black/60';
@@ -24,15 +25,15 @@ const BotCard = ({ botData }) => {
         <div>
           <h2 className="text-white font-mono text-lg tracking-tighter">FUTURES SNIPER</h2>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`w-2 h-2 rounded-full ${status === 'POSITION_OPEN' ? 'bg-neon-green animate-ping' : 'bg-gray-700'}`}></span>
+            <span className={`w-2 h-2 rounded-full ${status === 'POSITION_OPEN' ? (env_mode === 'REJECTION' ? 'bg-red-500 animate-ping' : 'bg-neon-green animate-ping') : 'bg-gray-700'}`}></span>
             <p className="text-[10px] text-gray-400 font-mono uppercase tracking-widest">
-              {status === 'POSITION_OPEN' ? 'Live Execution' : 'Monitoring'}
+              {status === 'POSITION_OPEN' ? (env_mode === 'REJECTION' ? 'High Risk Execution' : 'Live Execution') : 'Monitoring'}
             </p>
           </div>
         </div>
         {status === 'POSITION_OPEN' && (
-          <div className="bg-neon-green/10 px-3 py-1 rounded-full border border-neon-green/30">
-            <span className="text-neon-green text-[10px] font-bold font-mono">
+          <div className={`${env_mode === 'REJECTION' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-neon-green/10 border-neon-green/30 text-neon-green'} px-3 py-1 rounded-full border`}>
+            <span className="text-[10px] font-bold font-mono">
               {tier_label}
             </span>
           </div>
@@ -41,6 +42,13 @@ const BotCard = ({ botData }) => {
 
       {status === 'POSITION_OPEN' ? (
         <div className="space-y-4">
+          {env_mode === 'REJECTION' && (
+            <div className="bg-red-500/10 border border-red-500/30 p-3 rounded-xl">
+              <p className="text-red-400 text-[9px] font-mono uppercase tracking-widest font-bold">Lance Rule: Active</p>
+              <p className="text-gray-400 text-[8px] font-mono mt-1">Institutional Rejection Risk: HIGH (67% Wick Veto Enabled)</p>
+            </div>
+          )}
+          
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white/5 p-3 rounded-xl border border-white/10">
               <p className="text-gray-500 text-[10px] uppercase font-mono mb-1">Symbol</p>
@@ -56,11 +64,13 @@ const BotCard = ({ botData }) => {
           <ConvictionMeter level={conviction_level} />
           
           <button className={`w-full py-3 rounded-xl border font-mono text-xs font-bold tracking-widest transition-all duration-300 ${
-            conviction_level === 'HIGH' 
-              ? 'bg-neon-green text-black border-neon-green shadow-glow' 
-              : 'bg-yellow-400 text-black border-yellow-500'
+            env_mode === 'REJECTION'
+              ? 'bg-red-500 text-white border-red-600 shadow-red-glow animate-pulse'
+              : (conviction_level === 'HIGH' 
+                  ? 'bg-neon-green text-black border-neon-green shadow-glow' 
+                  : 'bg-yellow-400 text-black border-yellow-500')
           }`}>
-            {conviction_level === 'HIGH' ? 'HAMMER: DEPLOYED' : 'HAMMER: WAITING FOR 50%'}
+            {env_mode === 'REJECTION' ? 'REJECTION MODE: DEFEND' : (conviction_level === 'HIGH' ? 'HAMMER: DEPLOYED' : 'HAMMER: WAITING FOR 50%')}
           </button>
         </div>
       ) : (

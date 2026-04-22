@@ -4,6 +4,7 @@ import os
 import requests
 from datetime import datetime
 from trader_bridge import place_sniper_order, load_config
+from advanced_wick_defense import evaluate_rejection_risk
 
 initialize_app()
 db = firestore.client()
@@ -45,6 +46,19 @@ def tradovate_webhook(req: https_fn.Request) -> https_fn.Response:
     symbol = data.get("symbol")
     action = data.get("action").capitalize()
     wick_percentage = data.get("wick_pct", 0) # Provided by TradingView alert
+
+    # NEW: Advanced Wick Defense (Environment Switch)
+    # Construct a candle object for the evaluation
+    current_price = data.get("price", 0)
+    candle = {
+        'high': data.get("high", current_price),
+        'low': data.get("low", current_price),
+        'open': data.get("open", current_price),
+        'close': current_price
+    }
+    rejection_status = evaluate_rejection_risk(candle)
+    if "HARD_VETO" in rejection_status:
+        return https_fn.Response(rejection_status)
 
     # 3. Get Current Bot State from Firestore
     # Canonical Registry Alignment: 'agents/market_command'
@@ -92,15 +106,14 @@ def tradovate_webhook(req: https_fn.Request) -> https_fn.Response:
     }
 
     # LITTLE RZY LOGIC: Track points and calculate exits
-    current_price = data.get("price", 0)
     if tier['label'] == "SCOUT":
         # Point A is the low, Point B is the breakout high
         update_data["point_a"] = data.get("point_a", current_price) 
         update_data["point_b"] = current_price
     elif tier['label'] == "SCALING":
         # Point C is the pullback low
-        point_a = bot_data.get("point_a", 0)
-        point_b = bot_data.get("point_b", 0)
+        point_a = agent_data.get("point_a", 0)
+        point_b = agent_data.get("point_b", 0)
         point_c = data.get("point_c", current_price)
         
         if point_a and point_b:
